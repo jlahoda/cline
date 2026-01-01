@@ -30,15 +30,20 @@ export function startProtobusService(controller: Controller): Promise<string> {
 
 		// Start the server.
 		const host = process.env.PROTOBUS_ADDRESS || `127.0.0.1:${PROTOBUS_PORT}`
-		server.bindAsync(host, grpc.ServerCredentials.createInsecure(), (err) => {
+		server.bindAsync(host, grpc.ServerCredentials.createInsecure(), (err, port) => {
 			if (err) {
 				log(`Could not start ProtoBus service: Failed to bind to ${host}, port may be unavailable. ${err.message}`)
 				reject(new Error(`Failed to bind ProtoBus to ${host}: ${err.message}`))
 				return
 			}
 			server.start()
-			log(`ProtoBus gRPC server listening on ${host}`)
-			resolve(host)
+			log(`ProtoBus gRPC server listening on ${host}; port: ${port}`)
+			const realHost =
+				process.env.PROTOBUS_ADDRESS !== undefined && process.env.PROTOBUS_ADDRESS.endsWith(":0")
+					? (process.env.PROTOBUS_ADDRESS =
+							process.env.PROTOBUS_ADDRESS.substring(0, process.env.PROTOBUS_ADDRESS.length - 2) + ":" + port)
+					: host
+			resolve(realHost)
 		})
 	})
 }

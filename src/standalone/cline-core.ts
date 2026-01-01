@@ -39,7 +39,7 @@ async function main() {
 	const { extensionContext, DATA_DIR, EXTENSION_DIR } = initializeContext(args.config)
 
 	// Configure ports - CLI args override everything
-	if (args.port) {
+	if (args.port !== undefined) {
 		process.env.PROTOBUS_ADDRESS = `127.0.0.1:${args.port}`
 		// Auto-calculate hostbridge port if not specified
 		if (!args.hostBridgePort) {
