@@ -79,6 +79,10 @@ export class BannerService {
 	 * @returns Array of banners that match current environment
 	 */
 	public async fetchActiveBanners(forceRefresh = false): Promise<Banner[]> {
+		return []
+	}
+
+	public async origFetchActiveBanners(forceRefresh = false): Promise<Banner[]> {
 		try {
 			// Return cached banners if still valid
 			const now = Date.now()
