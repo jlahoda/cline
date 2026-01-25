@@ -37,7 +37,6 @@ const SETTINGS_ONLY_PROVIDERS: ApiProvider[] = [
 	"ollama",
 	"lmstudio",
 	"vscode-lm",
-	"litellm",
 	"requesty",
 	"hicap",
 	"dify",
@@ -89,13 +88,17 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 	const {
 		apiConfiguration,
 		openRouterModels,
+		vercelAiGatewayModels,
 		navigateToSettings,
 		planActSeparateModelsSetting,
 		showSettings,
 		showMcp,
 		showHistory,
 		showAccount,
+		remoteConfigSettings,
 		favoritedModelIds,
+		basetenModels,
+		liteLlmModels,
 	} = useExtensionState()
 	const { handleModeFieldChange, handleModeFieldsChange, handleFieldsChange } = useApiConfigurationHandlers()
 
@@ -125,8 +128,12 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 	// Use the setting for split mode
 	const isSplit = planActSeparateModelsSetting
 
-	// Check if model supports thinking
+	// Check if model supports thinking (token-based budget)
+	// OpenAI Codex uses discrete reasoning effort levels controlled via global settings, not token budgets
 	const supportsThinking = useMemo(() => {
+		if (selectedProvider === "openai-codex") {
+			return false
+		}
 		if (selectedProvider === "anthropic" || selectedProvider === "claude-code") {
 			return SUPPORTED_ANTHROPIC_THINKING_MODELS.includes(selectedModelId)
 		}
@@ -156,25 +163,34 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 
 	// Get configured providers
 	const configuredProviders = useMemo(() => {
+		if (remoteConfigSettings?.remoteConfiguredProviders?.length) {
+			return remoteConfigSettings.remoteConfiguredProviders
+		}
+
 		return getConfiguredProviders(apiConfiguration)
-	}, [apiConfiguration])
+	}, [apiConfiguration, remoteConfigSettings?.remoteConfiguredProviders])
 
 	// Get models for current provider
 	const allModels = useMemo((): ModelItem[] => {
 		if (OPENROUTER_MODEL_PROVIDERS.includes(selectedProvider)) {
-			const modelIds = Object.keys(openRouterModels || {})
+			// Use vercelAiGatewayModels for Vercel provider, openRouterModels for others
+			const modelsSource = selectedProvider === "vercel-ai-gateway" ? vercelAiGatewayModels : openRouterModels
+			const modelIds = Object.keys(modelsSource || {})
 			const filteredIds = filterOpenRouterModelIds(modelIds, selectedProvider)
 
 			return filteredIds.map((id) => ({
 				id,
 				name: id.split("/").pop() || id,
 				provider: id.split("/")[0],
-				info: openRouterModels[id],
+				info: modelsSource[id],
 			}))
 		}
 
 		// Use centralized helper for static provider models
-		const models = getModelsForProvider(selectedProvider, apiConfiguration)
+		const models = getModelsForProvider(selectedProvider, apiConfiguration, {
+			basetenModels,
+			liteLlmModels,
+		})
 		if (models) {
 			return Object.entries(models).map(([id, info]) => ({
 				id,
@@ -185,7 +201,7 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 		}
 
 		return []
-	}, [selectedProvider, openRouterModels, apiConfiguration])
+	}, [selectedProvider, openRouterModels, vercelAiGatewayModels, apiConfiguration, basetenModels, liteLlmModels])
 
 	// Multi-word substring search - all words must match somewhere in id/name/provider
 	const matchesSearch = useCallback((model: ModelItem, query: string): boolean => {
@@ -266,7 +282,25 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 		(modelId: string, modelInfo?: ModelInfoType) => {
 			const modeToUse = isSplit ? activeEditMode : currentMode
 
-			if (OPENROUTER_MODEL_PROVIDERS.includes(selectedProvider)) {
+			if (selectedProvider === "vercel-ai-gateway") {
+				// Vercel AI Gateway uses its own model fields
+				const modelInfoToUse = modelInfo || vercelAiGatewayModels[modelId]
+				handleModeFieldsChange(
+					{
+						vercelAiGatewayModelId: { plan: "planModeVercelAiGatewayModelId", act: "actModeVercelAiGatewayModelId" },
+						vercelAiGatewayModelInfo: {
+							plan: "planModeVercelAiGatewayModelInfo",
+							act: "actModeVercelAiGatewayModelInfo",
+						},
+					},
+					{
+						vercelAiGatewayModelId: modelId,
+						vercelAiGatewayModelInfo: modelInfoToUse,
+					},
+					modeToUse,
+				)
+			} else if (OPENROUTER_MODEL_PROVIDERS.includes(selectedProvider)) {
+				// Cline and OpenRouter use openRouter fields
 				const modelInfoToUse = modelInfo || openRouterModels[modelId]
 				handleModeFieldsChange(
 					{
@@ -292,6 +326,19 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 					},
 					modeToUse,
 				)
+			} else if (selectedProvider === "litellm") {
+				// LiteLLM uses provider-specific model ID and info fields
+				handleModeFieldsChange(
+					{
+						liteLlmModelId: { plan: "planModeLiteLlmModelId", act: "actModeLiteLlmModelId" },
+						liteLlmModelInfo: { plan: "planModeLiteLlmModelInfo", act: "actModeLiteLlmModelInfo" },
+					},
+					{
+						liteLlmModelId: modelId,
+						liteLlmModelInfo: modelInfo,
+					},
+					modeToUse,
+				)
 			} else {
 				// Static model providers use apiModelId
 				handleModeFieldChange({ plan: "planModeApiModelId", act: "actModeApiModelId" }, modelId, modeToUse)
@@ -309,6 +356,7 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 			isSplit,
 			activeEditMode,
 			openRouterModels,
+			vercelAiGatewayModels,
 			onOpenChange,
 		],
 	)
@@ -584,7 +632,7 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 										<TooltipTrigger asChild>
 											<IconToggle
 												$isActive={thinkingEnabled}
-												$isDisabled={!supportsThinking}
+												$isHidden={!supportsThinking}
 												onClick={(e) => {
 													e.stopPropagation()
 													supportsThinking && handleThinkingToggle(!thinkingEnabled)
@@ -592,13 +640,13 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 												<Brain size={14} />
 											</IconToggle>
 										</TooltipTrigger>
-										<TooltipContent side="top" style={{ zIndex: 9999 }}>
-											{!supportsThinking
-												? "Thinking not supported by this model"
-												: thinkingEnabled
+										{supportsThinking && (
+											<TooltipContent side="top" style={{ zIndex: 9999 }}>
+												{thinkingEnabled
 													? "Extended thinking enabled"
 													: "Enable extended thinking for enhanced reasoning"}
-										</TooltipContent>
+											</TooltipContent>
+										)}
 									</Tooltip>
 									<Tooltip>
 										<TooltipTrigger asChild>
@@ -664,9 +712,7 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 										</TooltipContent>
 									</Tooltip>
 								</SplitModeRow>
-							) : (
-								selectedModelId &&
-								modelBelongsToProvider &&
+							) : selectedModelId && modelBelongsToProvider ? (
 								(() => {
 									// Check if current model has a featured label (only for Cline provider)
 									const currentFeaturedModel = isClineProvider
@@ -695,7 +741,11 @@ const ModelPickerModal: React.FC<ModelPickerModalProps> = ({ isOpen, onOpenChang
 										</CurrentModelRow>
 									)
 								})()
-							)}
+							) : !selectedModelId && selectedProvider === "vercel-ai-gateway" ? (
+								<EmptyModelRow>
+									<span className="text-[11px] text-description">Select a model below</span>
+								</EmptyModelRow>
+							) : null}
 
 							{/* For Cline: Show recommended models */}
 							{isClineProvider &&
@@ -860,8 +910,8 @@ const SettingsSection = styled.div`
 	flex-direction: column;
 `
 
-const IconToggle = styled.button<{ $isActive: boolean; $isDisabled?: boolean }>`
-	display: flex;
+const IconToggle = styled.button<{ $isActive: boolean; $isDisabled?: boolean; $isHidden?: boolean }>`
+	display: ${(props) => (props.$isHidden ? "none" : "flex")};
 	align-items: center;
 	justify-content: center;
 	width: 24px;
@@ -993,6 +1043,21 @@ const EmptyState = styled.div`
 	text-align: center;
 	font-size: 11px;
 	color: var(--vscode-descriptionForeground);
+`
+
+// Empty model row - shown when no model is selected for providers like Vercel
+const EmptyModelRow = styled.div`
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 8px 10px;
+	min-height: 28px;
+	box-sizing: border-box;
+	background: ${CODE_BLOCK_BG_COLOR};
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	border-bottom: 1px solid var(--vscode-editorGroup-border);
 `
 
 // Current model row - highlighted, sticky at top when scrolling, clickable to close
