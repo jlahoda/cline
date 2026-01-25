@@ -349,7 +349,7 @@ export class Controller {
 
 	async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
 		this.stateManager.setGlobalState("telemetrySetting", telemetrySetting)
-		const isOptedIn = telemetrySetting !== "disabled"
+		const isOptedIn = telemetrySetting === "enabled"
 		telemetryService.updateTelemetryState(isOptedIn)
 		await this.postStateToWebview()
 	}
