@@ -1,4 +1,4 @@
-import { isGPT5ModelFamily, isGPT51Model, isGPT52Model, isNextGenModelProvider } from "@utils/model-utils"
+import { isGPT5ModelFamily, isGPT51Model, isGPT52Model, isGptOssModelFamily, isNextGenModelProvider } from "@utils/model-utils"
 import { ModelFamily } from "@/shared/prompts"
 import { Logger } from "@/shared/services/Logger"
 import { ClineDefaultTool } from "@/shared/tools"
@@ -28,7 +28,7 @@ export const config = createVariant(ModelFamily.NATIVE_GPT_5)
 		if (!isNextGenModelProvider(providerInfo)) {
 			return false
 		}
-		if (modelId.includes("gpt-oss")) {
+		if (isGptOssModelFamily(modelId)) {
 			return true
 		}
 		return (
@@ -48,7 +48,6 @@ export const config = createVariant(ModelFamily.NATIVE_GPT_5)
 		SystemPromptSection.TOOL_USE,
 		SystemPromptSection.TASK_PROGRESS,
 		SystemPromptSection.ACT_VS_PLAN,
-		SystemPromptSection.CLI_SUBAGENTS,
 		SystemPromptSection.CAPABILITIES,
 		SystemPromptSection.FEEDBACK,
 		SystemPromptSection.RULES,
@@ -78,6 +77,7 @@ export const config = createVariant(ModelFamily.NATIVE_GPT_5)
 		ClineDefaultTool.TODO,
 		ClineDefaultTool.GENERATE_EXPLANATION,
 		ClineDefaultTool.USE_SKILL,
+		ClineDefaultTool.USE_SUBAGENTS,
 	)
 	.placeholders({
 		MODEL_FAMILY: ModelFamily.NATIVE_GPT_5,

@@ -82,9 +82,8 @@ export class ClineAccountService {
 		}
 		if (response.statusText === "No Content") {
 			return {} as T // Return empty object if no content
-		} else {
-			return response.data.data as T
 		}
+		return response.data.data as T
 	}
 
 	/**
@@ -249,24 +248,6 @@ export class ClineAccountService {
 			await this._authService.restoreRefreshTokenAndRetrieveAuthInfo()
 			throw error
 		}
-	}
-
-	/**
-	 * Transcribes audio using the Cline transcription service
-	 * @param audioBase64 - Base64 encoded audio data
-	 * @param language - Optional language hint for transcription
-	 * @returns Promise with transcribed text or error
-	 */
-	async transcribeAudio(audioBase64: string, language = "en"): Promise<{ text: string }> {
-		const response = await this.authenticatedRequest<{ text: string }>(`/api/v1/chat/transcriptions`, {
-			method: "POST",
-			data: {
-				audioData: audioBase64,
-				language: language,
-			},
-		})
-
-		return response
 	}
 
 	private getCurrentUser() {

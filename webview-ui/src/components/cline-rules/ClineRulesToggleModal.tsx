@@ -40,7 +40,6 @@ const ClineRulesToggleModal: React.FC = () => {
 		remoteWorkflowToggles = {},
 		remoteConfigSettings = {},
 		hooksEnabled,
-		skillsEnabled,
 		setGlobalClineRulesToggles,
 		setLocalClineRulesToggles,
 		setLocalCursorRulesToggles,
@@ -75,13 +74,6 @@ const ClineRulesToggleModal: React.FC = () => {
 			setCurrentView("rules")
 		}
 	}, [currentView, hooksEnabled])
-
-	// Auto-switch to rules tab if skills become disabled while viewing skills tab
-	useEffect(() => {
-		if (currentView === "skills" && !skillsEnabled) {
-			setCurrentView("rules")
-		}
-	}, [currentView, skillsEnabled])
 
 	useEffect(() => {
 		if (isVisible) {
@@ -484,11 +476,9 @@ const ClineRulesToggleModal: React.FC = () => {
 										Hooks
 									</TabButton>
 								)}
-								{skillsEnabled && (
-									<TabButton isActive={currentView === "skills"} onClick={() => setCurrentView("skills")}>
-										Skills
-									</TabButton>
-								)}
+								<TabButton isActive={currentView === "skills"} onClick={() => setCurrentView("skills")}>
+									Skills
+								</TabButton>
 							</div>
 						</div>
 
@@ -690,7 +680,9 @@ const ClineRulesToggleModal: React.FC = () => {
 							<>
 								<div className="text-xs text-description mb-4">
 									<p>
-										Toggle to enable/disable (chmod +x/-x).{" "}
+										{isWindows
+											? "On Windows, hooks execute whenever the hook file exists."
+											: "Toggle to enable/disable (chmod +x/-x)."}{" "}
 										<VSCodeLink
 											className="text-xs"
 											href="https://docs.cline.bot/features/hooks"
@@ -705,8 +697,9 @@ const ClineRulesToggleModal: React.FC = () => {
 									<div className="flex items-center gap-2 px-5 py-3 mb-4 bg-vscode-inputValidation-warningBackground border-l-[3px] border-vscode-inputValidation-warningBorder">
 										<i className="codicon codicon-warning text-sm" />
 										<span className="text-base">
-											Hook toggling is not supported on Windows. Hooks can be created, edited, and deleted,
-											but cannot be enabled/disabled and will not execute.
+											Hook toggling is not yet supported on Windows in this foundation PR. Hooks can be
+											created, edited, and deleted, and execute whenever the hook file exists. Coming next:
+											JSON-backed hook enabled/disabled state across platforms.
 										</span>
 									</div>
 								)}

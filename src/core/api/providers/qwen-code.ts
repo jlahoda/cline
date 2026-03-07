@@ -4,6 +4,7 @@ import OpenAI from "openai"
 import type { ChatCompletionTool as OpenAITool } from "openai/resources/chat/completions"
 import * as os from "os"
 import * as path from "path"
+import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { ClineStorageMessage } from "@/shared/messages/content"
 import { fetch } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
@@ -63,9 +64,12 @@ export class QwenCodeHandler implements ApiHandler {
 		if (!this.client) {
 			// Create the client instance with dummy key initially
 			// The API key will be updated dynamically via ensureAuthenticated
+			const externalHeaders = buildExternalBasicHeaders()
 			this.client = new OpenAI({
 				apiKey: "dummy-key-will-be-replaced",
 				baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+				defaultHeaders: externalHeaders,
+				fetch,
 			})
 		}
 		return this.client
@@ -171,9 +175,8 @@ export class QwenCodeHandler implements ApiHandler {
 				client.apiKey = this.credentials.access_token
 				client.baseURL = this.getBaseUrl(this.credentials)
 				return await apiCall()
-			} else {
-				throw error
 			}
+			throw error
 		}
 	}
 
